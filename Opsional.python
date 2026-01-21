@@ -1,6 +1,0 @@
-print("hello bloodos") 
-#now
-xz = True
-xc = True
-xs = True
-print(xz, xc, xs) 
