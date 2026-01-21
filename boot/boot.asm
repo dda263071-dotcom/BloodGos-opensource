@@ -1,5 +1,5 @@
-; BloodG OS Bootloader - x86 Real Mode
-; Loads kernel at 0x1000 and jumps to protected mode
+; BloodG OS Bootloader - FAT12 Aware
+; Loads kernel at 0x1000 with proper segment setup
 
 BITS 16
 org 0x7C00
@@ -20,13 +20,13 @@ start:
     mov si, msg_booting
     call print_string
 
-    ; Load kernel from disk
+    ; Load kernel from disk (sectors 2-16)
     mov ah, 0x02            ; Read sectors
     mov al, 15              ; Sectors to read (kernel size)
     mov ch, 0               ; Cylinder 0
     mov dh, 0               ; Head 0
     mov cl, 2               ; Start from sector 2
-    mov bx, 0x1000          ; Load kernel at 0x1000
+    mov bx, 0x1000          ; Load kernel at 0x1000 (64KB)
     int 0x13
     jc disk_error
 
@@ -41,13 +41,32 @@ start:
     or eax, 0x1
     mov cr0, eax
 
-    ; Far jump to kernel entry
-    jmp CODE_SEG:0x1000
+    ; Far jump to flush pipeline
+    jmp CODE_SEG:protected_mode
 
+BITS 32
+protected_mode:
+    ; Setup segment registers
+    mov ax, DATA_SEG
+    mov ds, ax
+    mov es, ax
+    mov fs, ax
+    mov gs, ax
+    mov ss, ax
+    
+    ; Setup stack
+    mov esp, 0x90000        ; Stack at 576KB
+    
+    ; Call kernel entry
+    jmp 0x1000
+
+BITS 16
 disk_error:
     mov si, msg_disk_error
     call print_string
-    jmp $
+.halt:
+    hlt
+    jmp .halt
 
 enable_a20:
     ; Enable A20 via keyboard controller
@@ -103,17 +122,17 @@ gdt_code:
     dw 0xFFFF                ; Limit 0-15
     dw 0x0000                ; Base 0-15
     db 0x00                  ; Base 16-23
-    db 10011010b             ; Access byte
-    db 11001111b             ; Flags + Limit 16-19
+    db 10011010b             ; Access byte: Present, Ring 0, Code, Exec/Read
+    db 11001111b             ; Granularity 4K, 32-bit, limit 16-19
     db 0x00                  ; Base 24-31
 
 gdt_data:
-    dw 0xFFFF
-    dw 0x0000
-    db 0x00
-    db 10010010b
-    db 11001111b
-    db 0x00
+    dw 0xFFFF                ; Limit 0-15
+    dw 0x0000                ; Base 0-15
+    db 0x00                  ; Base 16-23
+    db 10010010b             ; Access byte: Present, Ring 0, Data, Read/Write
+    db 11001111b             ; Granularity 4K, 32-bit, limit 16-19
+    db 0x00                  ; Base 24-31
 
 gdt_end:
 
@@ -126,7 +145,7 @@ DATA_SEG equ gdt_data - gdt_start
 
 ; Messages
 msg_booting db "Booting BloodG OS...", 0x0D, 0x0A, 0
-msg_disk_error db "Disk error! Press any key...", 0
+msg_disk_error db "Disk error! System halted.", 0
 
 ; Boot signature
 times 510-($-$$) db 0
