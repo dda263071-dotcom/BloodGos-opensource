@@ -306,7 +306,14 @@ We welcome contributions to BloodG OS! Here's how you can help:
 - Adding USB driver support
 - Creating graphical user interface
 - Porting to ARM architecture
-
+Assembly:        205 baris
+Kernel C:        820 baris
+Drivers C:     1,630 baris
+Filesystem C:    500 baris
+Libraries C:     520 baris
+Headers:         540 baris
+Tools:         1,345 baris
+TOTAL:         5,560 baris
 
 
 
