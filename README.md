@@ -325,11 +325,13 @@ We welcome contributions to BloodG OS! Here's how you can help:
 ---
 
 <div align="center">
-bash```
-  thanks for @alzzmetth
-  i'm a contributor of blood os
-  repo bloodOS : https://github.com/alzzmetth/bloodos-opensource
-```
+  
+## Credits
+- Thanks to **@alzzmetth**
+- I'm a contributor of **blood os**
+
+## Repository
+🔗 **bloodOS**: https://github.com/alzzmetth/bloodos-opensource
 
 **"From boot sector to filesystem - an operating system journey"**
 
