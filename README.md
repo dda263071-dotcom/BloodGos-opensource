@@ -1,214 +1,338 @@
-# BloodG OS - Minimal x86 Educational Operating System
+# 🩸 BloodG OS - Professional Operating System
 
-A clean, minimal 32-bit x86 operating system built from scratch for learning purposes. BloodG OS boots directly into a fully functional terminal interface with 16+ commands, designed specifically to teach operating system development fundamentals in a practical, hands-on way.
+<div align="center">
+**A complete, modular x86 operating system with filesystem support**
 
-> **Note**: BloodG OS is an independently maintained educational fork that builds upon the foundation of [BloodOS](https://github.com/alzzmetth/Bloodos-opensource) with significant improvements, enhanced reliability, and additional educational features.
+</div>
+
+## 🎯 Overview
+
+**BloodG OS** is a professional-grade, educational x86 operating system written from scratch in C and Assembly. It features a complete bootloader, kernel, drivers, and FAT12 filesystem support. Designed for learning and experimentation, BloodG OS demonstrates real operating system concepts in a clean, modular codebase.
 
 ## ✨ Features
 
-- **32-bit Protected Mode Kernel** - Real x86 protected mode implementation
-- **Full PS/2 Keyboard Support** - Working backspace, Shift, CapsLock, Ctrl+C, Ctrl+L shortcuts
-- **VGA Text Mode Interface** - 80x25 scrollable terminal with color support
-- **16+ Built-in Commands** - Including functional calculator, test suite, and system utilities
-- **Buffer Overflow Protection** - Safe input handling with 256-character limits
-- **Comprehensive Test Suite** - Built-in system validation with `test` command
-- **Educational Design** - Clean, readable code specifically structured for learning
+### ✅ Core Features
+- **Custom Bootloader** - Real mode bootloader with protected mode transition
+- **32-bit Protected Mode Kernel** - Full 32-bit operation with GDT setup
+- **FAT12 Filesystem** - Complete read/write support with cluster allocation
+- **ATA PIO Driver** - Hard disk access using Programmed I/O
+- **VGA Text Mode** - 80x25 terminal with color support
+- **PS/2 Keyboard** - Full keyboard driver with scancode translation
+- **PIC Interrupt Controller** - Hardware interrupt handling
 
-## 🚀 Quick Startz
+### 🚀 Advanced Capabilities
+- **Memory Management** - Bump allocator with 1MB kernel pool
+- **Serial Port Support** - COM1 debugging and communication
+- **PIT Timer** - Programmable Interval Timer for scheduling
+- **Modular Architecture** - Clean separation between kernel, drivers, and libraries
+- **Build System** - Professional Makefile with automated testing
+- **Development Tools** - Python scripts for disk creation and memory checking
 
-### Prerequisites
-```bash
-# Ubuntu/Debian
-sudo apt-get update
-sudo apt-get install nasm gcc-multilib qemu-system-x86 make
+### 📁 Filesystem Operations
+- `ls` - List directory contents
+- `cat` - Display file contents
+- File reading with cluster chain following
+- Directory parsing and metadata display
 
-# Fedora/RHEL
-sudo dnf install nasm gcc qemu-system-x86 make
-```
-
-### Build & Run in Emulator
-```bash
-# Clone the repository
-git clone https://github.com/YOUR_USERNAME/bloodg-os.git
-cd bloodg-os
-
-# Build the OS image
-make clean
-make
-
-# Run in QEMU (recommended for testing)
-make run
-```
-
-### Create Bootable Media (Advanced)
-```bash
-# WARNING: Use a dedicated USB drive, not your main storage!
-# Replace /dev/sdX with your USB device (check with lsblk)
-sudo dd if=bloodg.img of=/dev/sdX bs=4M status=progress
-sync
-```
-
-## 📁 Project Structure
+## 🏗️ Project Structure
 
 ```
 bloodg-os/
-├── boot.asm              # 16-bit bootloader (real mode)
-├── kernel_entry.asm      # Kernel entry point (switches to protected mode)
-├── kernel.c              # Main kernel with terminal, keyboard, commands
-├── linker.ld             # Linker script for kernel layout
-├── Makefile              # Build system
-└── README.md             # This file
+├── boot/                    # Bootloader components
+│   ├── boot.asm            # Main bootloader (Real mode → Protected mode)
+│   ├── kernel_entry.asm    # Kernel entry point with stack setup
+│   ├── shutdown.asm        # System shutdown/reboot functions
+│   └── false.asm           # Error handler for kernel validation
+│
+├── kernel/                  # Core kernel
+│   ├── kernel.c            # Main kernel with shell and command processor
+│   ├── loading.c           # Animated loading screen with ASCII art
+│   └── driver.c            # Basic hardware I/O functions
+│
+├── drivers/                 # Hardware drivers
+│   ├── ata.c               # ATA/IDE disk driver (PIO mode)
+│   ├── keyboard.c          # PS/2 keyboard driver with scancode translation
+│   ├── vga.c               # VGA text mode driver with color support
+│   ├── timer.c             # PIT (Programmable Interval Timer) driver
+│   ├── serial.c            # Serial port driver (COM1)
+│   └── pic.c               # PIC (8259) interrupt controller
+│
+├── fs/                      # Filesystem implementation
+│   └── fat12.c             # Complete FAT12 filesystem driver
+│
+├── src/                     # Core libraries
+│   ├── string.c            # String and memory manipulation functions
+│   ├── io.c                # Port I/O and CPU control functions
+│   └── memory.c            # Memory management with 1MB pool
+│
+├── include/                 # Header files
+│   ├── string.h            # String library declarations
+│   ├── io.h                # I/O port declarations
+│   ├── memory.h            # Memory management declarations
+│   ├── fat12.h             # FAT12 filesystem API
+│   ├── ata.h               # ATA driver interface
+│   ├── keyboard.h          # Keyboard driver interface
+│   ├── vga.h               # VGA text mode interface
+│   ├── timer.h             # Timer functions
+│   └── serial.h            # Serial port interface
+│
+├── tools/                   # Development tools
+│   ├── create_fat12.py     # FAT12 disk image creator
+│   ├── memory_check.py     # Memory layout visualization tool
+│   ├── memory_check.c      # C version for kernel integration
+│   └── docs.py             # Documentation generator
+│
+├── build/                   # Build artifacts (generated)
+├── Linker.ld               # Linker script for kernel layout
+├── Makefile                # Professional build system
+└── Build.sh                # Automated build and test script
 ```
 
-## ⌨️ Available Commands
+## 🚀 Getting Started
 
-| Command | Description | Example |
-|---------|-------------|---------|
-| `help` | Show all available commands | `help` |
-| `clear` / `cls` | Clear the terminal screen | `clear` |
-| `echo <text>` | Print text to the screen | `echo Hello World` |
-| `calc <num1> <op> <num2>` | Simple calculator | `calc 5 + 3` |
-| `color <0-15>` | Change terminal text color | `color 14` (yellow) |
-| `ver` | Show system version information | `ver` |
-| `about` | Show information about BloodG OS | `about` |
-| `test` | Run comprehensive system tests | `test` |
-| `mem` | Show memory information | `mem` |
-| `ls` | List directories (placeholder) | `ls` |
-| `time` | Show system time (placeholder) | `time` |
-| `date` | Show system date (placeholder) | `date` |
-| `reboot` | Restart the system | `reboot` |
-| `shutdown` | Power off the system | `shutdown` |
-| `exit` | Exit terminal session | `exit` |
-
-## 🛡️ Safety Features
-
-- **Buffer Overflow Protection** - Input limited to 256 characters with automatic clearing
-- **Ctrl+C Support** - Cancel any input (Unix-like behavior)
-- **Ctrl+L Support** - Quick screen clearing
-- **Safe Backspace Implementation** - Works correctly in all cursor positions
-- **Input Validation** - Prevents system crashes on invalid input
-- **Emulator-First Design** - Always test in QEMU before real hardware
-
-## 🧪 Testing
-
-BloodG OS includes a comprehensive built-in test suite:
+### Prerequisites
 
 ```bash
-bloodg> test
-=== BloodG OS System Test ===
-1. Backspace Test: [PASS]
-2. Buffer Test: [PASS]
-3. Color Test: [PASS]
-4. Scroll Test: [PASS]
-=== ALL TESTS PASSED ===
+# Ubuntu/Debian
+sudo apt-get update
+sudo apt-get install nasm gcc-multilib grub-pc-bin qemu-system-x86 python3
+
+# Fedora/RHEL
+sudo dnf install nasm gcc ld grub2-tools qemu-system-x86 python3
+
+# Arch Linux
+sudo pacman -S nasm gcc-multilib grub qemu-desktop python
+
+# macOS (with Homebrew)
+brew install nasm i386-elf-gcc i386-elf-binutils qemu python3
 ```
 
-The test suite validates:
-- Keyboard input and backspace functionality
-- Buffer management and overflow protection
-- Terminal color and display capabilities
-- Screen scrolling behavior
+### Quick Start
 
-## 🔧 Technical Details
+```bash
+# Clone the repository
+git clone https://github.com/one_to_go/bloodg-os.git
+cd bloodg-os
+
+# Make scripts executable
+chmod +x Build.sh
+chmod +x tools/*.py
+
+# Complete build and run
+./Build.sh --all
+```
+
+## 🔧 Building from Source
+
+### Complete Build Process
+
+```bash
+# Method 1: Using the build script (recommended)
+./Build.sh --all
+
+# Method 2: Step by step
+./Build.sh --clean      # Clean build directory
+./Build.sh --build      # Build kernel
+./Build.sh --create-disk # Create FAT12 disk image
+./Build.sh --test       # Run tests
+./Build.sh --run        # Run in QEMU
+```
+
+### Manual Build
+
+```bash
+# Clean previous builds
+make clean
+
+# Build everything
+make all
+
+# Create disk image
+python3 tools/create_fat12.py bloodg.img
+
+# Run in QEMU
+make run
+```
+
+## 💻 Running BloodG OS
+
+### Running in QEMU
+
+```bash
+# Run with kernel + disk image
+qemu-system-x86_64 -kernel kernel.bin -fda bloodg.img -m 64M -serial stdio
+
+# Run with ISO image
+qemu-system-x86_64 -cdrom bloodg.iso -m 64M -serial stdio
+
+# Run with debugger
+make debug
+```
+
+### Available Commands
+
+Once BloodG OS boots, you'll see the `bloodg> ` prompt. Available commands:
+
+```bash
+bloodg> help              # Show all available commands
+bloodg> ls                # List files on FAT12 disk
+bloodg> cat README.TXT    # Display file contents
+bloodg> ver               # Show BloodG OS version
+bloodg> mem               # Display memory information
+bloodg> about             # Show about information
+bloodg> clear             # Clear screen (also: cls)
+bloodg> echo <text>       # Print text
+bloodg> reboot            # Restart system
+bloodg> shutdown          # Power off system
+```
+
+## 🏛️ System Architecture
 
 ### Boot Process
-1. BIOS loads 512-byte bootloader from sector 0
-2. Bootloader switches from real mode to protected mode
-3. Kernel loaded at memory address 0x1000
-4. Kernel initializes VGA, keyboard, and terminal
-5. Command-line interface starts automatically
+1. **BIOS** loads bootloader at 0x7C00
+2. **Bootloader** enables A20 line, loads GDT, switches to protected mode
+3. **Kernel Entry** sets up stack and calls `kmain()`
+4. **Kernel Initialization** initializes hardware drivers and filesystem
+5. **Shell** starts interactive command processor
 
-### Memory Map
+### Memory Layout
 ```
-0x00000000 - 0x0000FFFF: Real mode (not used after boot)
-0x00010000 - 0x0008FFFF: Kernel space
-0x00090000 - 0x0009FFFF: Stack space
-0x000B8000 - 0x000B8FA0: VGA text buffer
+0x00000000 - 0x0000FFFF   Real Mode Area (64KB)
+0x00010000 - 0x0008FFFF   Kernel Code/Data (32KB)
+0x00090000 - 0x0009FFFF   Stack Space (16KB)
+0x000B8000 - 0x000B8FA0   VGA Text Buffer (4KB)
+0x00100000 - 0x01FFFFFF   Available Memory (31MB)
 ```
 
-### Keyboard Implementation
-- PS/2 keyboard driver in polling mode (no interrupts needed)
-- Full scancode set 1 support
-- Shift, CapsLock, Ctrl, Alt state tracking
-- Backspace with proper cursor handling
+### Filesystem Structure
+BloodG OS uses **FAT12** filesystem with:
+- 512 bytes per sector
+- 1 sector per cluster
+- 2 FAT tables (for redundancy)
+- 224 root directory entries
+- Support for files up to 32MB
 
-## ⚠️ Important Notes
+## 📚 Command Reference
 
-### For Educational Use Only
-BloodG OS is designed **exclusively for educational purposes**. It is not suitable for production use and lacks essential features for daily operation.
+### System Commands
+| Command | Description | Usage |
+|---------|-------------|-------|
+| `help` | Show all commands | `help` |
+| `ver` | Show version info | `ver` |
+| `mem` | Display memory info | `mem` |
+| `about` | About BloodG OS | `about` |
+| `clear`/`cls` | Clear screen | `clear` |
+| `echo` | Print text | `echo Hello World` |
+| `reboot` | Restart system | `reboot` |
+| `shutdown` | Power off | `shutdown` |
 
-### Safety Recommendations
-1. **Always test in QEMU first** before attempting to run on real hardware
-2. **Use a dedicated USB drive** - never write to your main storage device
-3. **Backup important data** before testing on real hardware
-4. **Disable Secure Boot** in BIOS if testing on real hardware
-5. **Have a recovery USB** ready with a working OS
+### Filesystem Commands
+| Command | Description | Usage |
+|---------|-------------|-------|
+| `ls`/`dir` | List directory | `ls` |
+| `cat`/`type` | Display file | `cat README.TXT` |
 
-### Limitations
-- No filesystem support
-- No memory management (paging/malloc)
-- No hardware abstraction layer
-- No network support
-- No power management
-- No user accounts or security
+## 🛠️ Development
+
+### Code Organization
+
+```
+# Kernel Development
+kernel/kernel.c          # Main kernel logic
+kernel/loading.c         # Loading screen animation
+
+# Driver Development
+drivers/ata.c           # Disk access
+drivers/keyboard.c      # Input handling
+drivers/vga.c           # Display output
+
+# Filesystem Development
+fs/fat12.c              # FAT12 implementation
+
+# Library Development
+src/string.c            # String utilities
+src/io.c                # Hardware access
+src/memory.c            # Memory management
+```
+
+### Adding New Features
+
+1. **New Command**: Add to command table in `kernel/kernel.c`
+2. **New Driver**: Create in `drivers/` and add to Makefile
+3. **New System Call**: Extend kernel API in `include/kernel.h`
+4. **New Filesystem Feature**: Modify `fs/fat12.c`
+
+### Debugging
+
+```bash
+# Run with GDB debugger
+make debug
+
+# View memory map
+python3 tools/memory_check.py
+
+# Generate documentation
+python3 tools/docs.py
+
+# Create custom disk image
+python3 tools/create_fat12.py custom.img
+```
 
 ## 🤝 Contributing
 
-Contributions are welcome! BloodG OS is an educational project and improvements that enhance learning value are particularly appreciated.
+We welcome contributions to BloodG OS! Here's how you can help:
 
-### Areas for Improvement
-1. **Filesystem Support** - Implement FAT12 or simple RAM filesystem
-2. **Memory Management** - Add paging and heap allocation
-3. **Additional Commands** - Text editor, file operations, games
-4. **Documentation** - Tutorials, architecture explanations
-5. **Testing** - More comprehensive test cases
+### Reporting Issues
+- Use GitHub Issues to report bugs
+- Include QEMU version and host OS
+- Provide steps to reproduce
 
-### Contribution Guidelines
+### Submitting Changes
 1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/improvement`)
-3. Commit changes (`git commit -am 'Add some feature'`)
-4. Push to branch (`git push origin feature/improvement`)
-5. Create a Pull Request
+2. Create a feature branch
+3. Make your changes
+4. Test thoroughly
+5. Submit a pull request
 
-## 📚 Learning Resources
+### Development Guidelines
+- Follow existing code style
+- Add comments for complex logic
+- Update documentation
+- Test with both QEMU and real hardware (if possible)
 
-### For BloodG OS Developers
-- Study `boot.asm` to understand real mode and protected mode switching
-- Examine `kernel.c` to see system initialization and command structure
-- Review the keyboard driver in `poll_keyboard()` for input handling
-
-
-## 🙏 Acknowledgments
-
-BloodG OS builds upon the foundation of [BloodOS](https://github.com/alzzmetth/Bloodos-opensource) by alzzmetth, whose minimal implementation provided excellent educational value. We've extended and improved the system with:
-
-- Fixed keyboard driver with proper backspace and modifier key support
-- Enhanced command system with argument parsing
-- Functional calculator implementation
-- Comprehensive test suite
-- Buffer overflow protection
-- Improved documentation and safety features
-
-Special thanks to the OS development community for invaluable resources and inspiration.
+### Areas Needing Help
+- Adding ext2 filesystem support
+- Implementing paging and virtual memory
+- Adding USB driver support
+- Creating graphical user interface
+- Porting to ARM architecture
 
 
 
-## 📞 Support
 
-For questions, issues, or discussions about BloodG OS:
+### Special Thanks
+- All contributors who have helped shape BloodG OS
+- The open source community for inspiration and tools
+- Early testers who provided valuable feedback
 
-1. **Check existing issues** on GitHub
-2. **Review the documentation** above thoroughly
-3. **Search OSDev resources** for general OS development questions
+## 📞 Contact & Support
 
-Remember that BloodG OS is an **educational project** maintained by volunteers. Response times may vary, but all constructive feedback is appreciated.
+**Developer**: @one_to_go  
+**Repository**: https://github.com/dda263071-dotcom/BloodGos-opensource
+**Issues**: https://github.com//dda263071-dotcom/BloodGos-opensourceissues  
+
 
 ---
-```bash
-thanks for @alzzmetth
-links : https://github.com/alzzmetth/Bloodos-opensource
-follow : https://github.com/alzzmetth
-```
-**Happy coding and learning!** 🖥️💻🔧
 
-*"The best way to understand an operating system is to build one."*
+<div align="center">
+bash```
+  thanks for @alzzmetth
+  i'm a contributor of blood os
+  repo bloodOS : https://github.com/alzzmetth/bloodos-opensource
+```
+
+**"From boot sector to filesystem - an operating system journey"**
+
+*Built with passion for learning and sharing knowledge*
+
+⭐ **Star this project if you find it helpful!** ⭐
