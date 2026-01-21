@@ -1,10 +1,12 @@
-; Kernel Entry Point
-; Sets up stack and calls kmain()
+; Kernel Entry Point with Filesystem Initialization
+; Sets up stack, calls hardware init, then calls kmain()
 
 BITS 32
 
 global start
 extern kmain
+extern ata_init
+extern fat12_init
 
 start:
     ; Set up stack
@@ -13,14 +15,32 @@ start:
     ; Clear direction flag
     cld
     
+    ; Initialize hardware
+    call hardware_init
+    
     ; Call main kernel function
     call kmain
     
-    ; Halt if kmain returns (should not happen)
+    ; Halt if kmain returns
     cli
 .hang:
     hlt
     jmp .hang
+
+hardware_init:
+    pusha
+    
+    ; Initialize ATA controller
+    call ata_init
+    
+    ; Initialize FAT12 filesystem
+    call fat12_init
+    
+    ; Note: These functions return bool, but we ignore for now
+    ; In production, you'd want to check return values
+    
+    popa
+    ret
 
 section .bss
 align 16
