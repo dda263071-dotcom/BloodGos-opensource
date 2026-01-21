@@ -1,84 +1,219 @@
 /**************************************************************
  * FAT12 Filesystem Driver - COMPLETE VERSION
+ * Using proper headers and memory management
  **************************************************************/
 
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
-#include <string.h>
 
-// ATA driver
+// Include our custom headers
+#include "string.h"
+#include "io.h"
+#include "memory.h"
+#include "fat12.h"
+
+// External function declarations (from kernel/ata.c)
 bool disk_read_sector(uint32_t lba, uint8_t* buffer);
+bool disk_write_sector(uint32_t lba, uint8_t* buffer);
 
-// FAT12 Structures
-typedef struct {
-    uint8_t jump[3];
-    char oem[8];
-    uint16_t bytes_per_sector;
-    uint8_t sectors_per_cluster;
-    uint16_t reserved_sectors;
-    uint8_t fat_count;
-    uint16_t root_dir_entries;
-    uint16_t total_sectors;
-    uint8_t media_type;
-    uint16_t sectors_per_fat;
-    uint16_t sectors_per_track;
-    uint16_t head_count;
-    uint32_t hidden_sectors;
-    uint32_t large_sector_count;
-} __attribute__((packed)) fat12_bpb_t;
-
-typedef struct {
-    char filename[8];
-    char extension[3];
-    uint8_t attributes;
-    uint8_t reserved[10];
-    uint16_t time;
-    uint16_t date;
-    uint16_t first_cluster;
-    uint32_t file_size;
-} __attribute__((packed)) fat12_dir_entry_t;
-
-// Global variables
+// Filesystem state
 static fat12_bpb_t bpb;
-static uint8_t fat[512 * 9];  // FAT table (9 sectors max)
 static bool initialized = false;
+static uint8_t* fat_cache = NULL;  // FAT cache buffer
+static uint8_t* root_dir_cache = NULL;  // Root directory cache
 
-// Utility: Convert cluster to LBA
+// Local helper function prototypes
+static uint32_t calculate_root_dir_sectors(void);
+static uint32_t calculate_data_start_sector(void);
+static bool read_fat_table(void);
+static bool read_root_directory(void);
+static bool validate_fat12(void);
+
+// Initialize FAT12 filesystem
+bool fat12_init(void) {
+    if (initialized) {
+        return true;
+    }
+    
+    print_string("Initializing FAT12 filesystem...\n");
+    
+    // Allocate buffers
+    fat_cache = get_fat_buffer();
+    root_dir_cache = get_dir_buffer();
+    
+    if (!fat_cache || !root_dir_cache) {
+        print_string("Error: Cannot allocate filesystem buffers\n");
+        return false;
+    }
+    
+    // Read boot sector
+    if (!disk_read_sector(0, (uint8_t*)&bpb)) {
+        print_string("Error: Cannot read boot sector\n");
+        return false;
+    }
+    
+    // Validate FAT12
+    if (!validate_fat12()) {
+        print_string("Error: Invalid FAT12 filesystem\n");
+        return false;
+    }
+    
+    // Read FAT table
+    if (!read_fat_table()) {
+        print_string("Error: Cannot read FAT table\n");
+        return false;
+    }
+    
+    // Read root directory
+    if (!read_root_directory()) {
+        print_string("Error: Cannot read root directory\n");
+        return false;
+    }
+    
+    initialized = true;
+    
+    // Print filesystem info
+    print_string("FAT12 Filesystem mounted:\n");
+    
+    char buffer[32];
+    
+    // Total sectors
+    itoa(bpb.total_sectors, buffer, 10);
+    print_string("  Total sectors: ");
+    print_string(buffer);
+    print_string("\n");
+    
+    // Bytes per sector
+    itoa(bpb.bytes_per_sector, buffer, 10);
+    print_string("  Bytes per sector: ");
+    print_string(buffer);
+    print_string("\n");
+    
+    // Root entries
+    itoa(bpb.root_dir_entries, buffer, 10);
+    print_string("  Root entries: ");
+    print_string(buffer);
+    print_string("\n");
+    
+    return true;
+}
+
+// Validate FAT12 filesystem
+static bool validate_fat12(void) {
+    // Check signature
+    if (bpb.bytes_per_sector != 512) {
+        return false;
+    }
+    
+    if (bpb.sectors_per_cluster == 0) {
+        return false;
+    }
+    
+    if (bpb.fat_count == 0) {
+        return false;
+    }
+    
+    // Check for valid FAT12 (total sectors <= 4084 clusters)
+    uint32_t data_sectors = bpb.total_sectors - 
+                           (bpb.reserved_sectors + 
+                            (bpb.fat_count * bpb.sectors_per_fat) + 
+                            calculate_root_dir_sectors());
+    
+    uint32_t total_clusters = data_sectors / bpb.sectors_per_cluster;
+    
+    if (total_clusters > 4084) {  // FAT12 max clusters
+        return false;
+    }
+    
+    return true;
+}
+
+// Read FAT table into cache
+static bool read_fat_table(void) {
+    uint32_t fat_start = bpb.reserved_sectors;
+    
+    for (uint16_t i = 0; i < bpb.sectors_per_fat; i++) {
+        if (!disk_read_sector(fat_start + i, &fat_cache[i * 512])) {
+            return false;
+        }
+    }
+    
+    return true;
+}
+
+// Read root directory into cache
+static bool read_root_directory(void) {
+    uint32_t root_dir_start = bpb.reserved_sectors + (bpb.fat_count * bpb.sectors_per_fat);
+    uint32_t root_dir_sectors = calculate_root_dir_sectors();
+    
+    for (uint32_t i = 0; i < root_dir_sectors; i++) {
+        if (!disk_read_sector(root_dir_start + i, &root_dir_cache[i * 512])) {
+            return false;
+        }
+    }
+    
+    return true;
+}
+
+// Calculate root directory size in sectors
+static uint32_t calculate_root_dir_sectors(void) {
+    return ((bpb.root_dir_entries * 32) + (bpb.bytes_per_sector - 1)) / bpb.bytes_per_sector;
+}
+
+// Calculate data area start sector
+static uint32_t calculate_data_start_sector(void) {
+    return bpb.reserved_sectors + 
+           (bpb.fat_count * bpb.sectors_per_fat) + 
+           calculate_root_dir_sectors();
+}
+
+// Convert cluster number to LBA
 uint32_t fat12_cluster_to_lba(uint16_t cluster) {
-    uint32_t root_dir_sectors = ((bpb.root_dir_entries * 32) + (bpb.bytes_per_sector - 1)) / bpb.bytes_per_sector;
-    uint32_t data_start = bpb.reserved_sectors + (bpb.fat_count * bpb.sectors_per_fat) + root_dir_sectors;
+    if (cluster < 2) {
+        return 0;  // Invalid cluster
+    }
+    
+    uint32_t data_start = calculate_data_start_sector();
     return data_start + ((cluster - 2) * bpb.sectors_per_cluster);
 }
 
-// Utility: Get next cluster in chain
+// Get next cluster in chain
 uint16_t fat12_get_next_cluster(uint16_t cluster) {
+    if (cluster < 2 || cluster >= 4085) {  // FAT12 max cluster
+        return 0xFFF;  // Invalid
+    }
+    
     uint32_t fat_offset = cluster * 3 / 2;
     
-    if(cluster & 0x0001) {
-        // Odd cluster
-        return (*(uint16_t*)(&fat[fat_offset])) >> 4;
+    if (fat_offset >= (bpb.sectors_per_fat * 512)) {
+        return 0xFFF;  // Out of bounds
+    }
+    
+    if (cluster & 0x0001) {
+        // Odd cluster: high 12 bits
+        return (fat_cache[fat_offset] >> 4) | (fat_cache[fat_offset + 1] << 4);
     } else {
-        // Even cluster
-        return (*(uint16_t*)(&fat[fat_offset])) & 0x0FFF;
+        // Even cluster: low 12 bits
+        return (fat_cache[fat_offset] | (fat_cache[fat_offset + 1] << 8)) & 0x0FFF;
     }
 }
 
-// Utility: Convert 8.3 filename to string
+// Convert 8.3 filename to string
 void fat12_83_to_string(const fat12_dir_entry_t* entry, char* buffer) {
-    // Filename (8 chars)
+    // Copy filename (8 chars)
     int pos = 0;
-    for(int i = 0; i < 8; i++) {
-        if(entry->filename[i] != ' ') {
+    for (int i = 0; i < 8; i++) {
+        if (entry->filename[i] != ' ') {
             buffer[pos++] = entry->filename[i];
         }
     }
     
-    // Extension if present
-    if(entry->extension[0] != ' ') {
+    // Add extension if present
+    if (entry->extension[0] != ' ') {
         buffer[pos++] = '.';
-        for(int i = 0; i < 3; i++) {
-            if(entry->extension[i] != ' ') {
+        for (int i = 0; i < 3; i++) {
+            if (entry->extension[i] != ' ') {
                 buffer[pos++] = entry->extension[i];
             }
         }
@@ -87,206 +222,166 @@ void fat12_83_to_string(const fat12_dir_entry_t* entry, char* buffer) {
     buffer[pos] = '\0';
 }
 
-// Initialize FAT12 filesystem
-bool fat12_init(void) {
-    if(initialized) return true;
-    
-    // Read boot sector
-    if(!disk_read_sector(0, (uint8_t*)&bpb)) {
-        return false;
-    }
-    
-    // Verify it's FAT12
-    if(bpb.bytes_per_sector != 512) {
-        return false;
-    }
-    
-    // Read FAT tables
-    uint32_t fat_start = bpb.reserved_sectors;
-    for(int i = 0; i < bpb.sectors_per_fat; i++) {
-        if(!disk_read_sector(fat_start + i, &fat[i * 512])) {
-            return false;
-        }
-    }
-    
-    initialized = true;
-    return true;
-}
-
 // Find file in directory
 bool fat12_find_file(const char* filename, fat12_dir_entry_t* result) {
-    if(!initialized && !fat12_init()) {
+    if (!initialized) {
         return false;
     }
     
-    uint32_t root_dir_start = bpb.reserved_sectors + (bpb.fat_count * bpb.sectors_per_fat);
-    uint32_t root_dir_sectors = ((bpb.root_dir_entries * 32) + (bpb.bytes_per_sector - 1)) / bpb.bytes_per_sector;
+    // Convert filename to uppercase for comparison
+    char search_name[13];
+    char upper_filename[13];
     
-    // Buffer for sector
-    uint8_t sector_buffer[512];
+    // Copy and convert to uppercase
+    strcpy(upper_filename, filename);
+    for (int i = 0; upper_filename[i]; i++) {
+        if (upper_filename[i] >= 'a' && upper_filename[i] <= 'z') {
+            upper_filename[i] = upper_filename[i] - 'a' + 'A';
+        }
+    }
     
-    for(uint32_t sector = 0; sector < root_dir_sectors; sector++) {
-        if(!disk_read_sector(root_dir_start + sector, sector_buffer)) {
-            return false;
+    // Search through root directory cache
+    for (uint16_t i = 0; i < bpb.root_dir_entries; i++) {
+        fat12_dir_entry_t* entry = (fat12_dir_entry_t*)&root_dir_cache[i * 32];
+        
+        // Check if entry is valid
+        if (entry->filename[0] == 0x00) {
+            // End of directory
+            break;
         }
         
-        // Parse 16 entries per sector (32 bytes each)
-        for(int i = 0; i < 16; i++) {
-            fat12_dir_entry_t* entry = (fat12_dir_entry_t*)&sector_buffer[i * 32];
-            
-            // Check if entry is valid
-            if(entry->filename[0] == 0x00) {
-                // End of directory
-                return false;
+        if (entry->filename[0] == 0xE5) {
+            // Deleted entry
+            continue;
+        }
+        
+        // Skip volume label and directories for now
+        if (entry->attributes & 0x08 || entry->attributes & 0x10) {
+            continue;
+        }
+        
+        // Convert entry name
+        fat12_83_to_string(entry, search_name);
+        
+        // Convert to uppercase for comparison
+        for (int j = 0; search_name[j]; j++) {
+            if (search_name[j] >= 'a' && search_name[j] <= 'z') {
+                search_name[j] = search_name[j] - 'a' + 'A';
             }
-            
-            if(entry->filename[0] == 0xE5) {
-                // Deleted entry
-                continue;
-            }
-            
-            // Skip volume label, subdirectory (for now)
-            if(entry->attributes & 0x08 || entry->attributes & 0x10) {
-                continue;
-            }
-            
-            // Convert to string for comparison
-            char entry_name[13];
-            fat12_83_to_string(entry, entry_name);
-            
-            // Compare filenames (case-insensitive)
-            int len = 0;
-            while(entry_name[len] && filename[len]) {
-                char c1 = entry_name[len];
-                char c2 = filename[len];
-                
-                // Convert to uppercase for comparison
-                if(c1 >= 'a' && c1 <= 'z') c1 -= 32;
-                if(c2 >= 'a' && c2 <= 'z') c2 -= 32;
-                
-                if(c1 != c2) break;
-                len++;
-            }
-            
-            if(entry_name[len] == '\0' && filename[len] == '\0') {
-                // Match found
-                *result = *entry;
-                return true;
-            }
+        }
+        
+        // Compare
+        if (strcmp(search_name, upper_filename) == 0) {
+            *result = *entry;
+            return true;
         }
     }
     
     return false;
 }
 
+// Get file information
+bool fat12_get_file_info(const char* filename, fat12_dir_entry_t* info) {
+    return fat12_find_file(filename, info);
+}
+
 // List directory contents
 void fat12_list_directory(void) {
-    if(!initialized && !fat12_init()) {
+    if (!initialized) {
+        print_string("Filesystem not initialized\n");
         return;
     }
     
-    uint32_t root_dir_start = bpb.reserved_sectors + (bpb.fat_count * bpb.sectors_per_fat);
-    uint32_t root_dir_sectors = ((bpb.root_dir_entries * 32) + (bpb.bytes_per_sector - 1)) / bpb.bytes_per_sector;
+    print_string("\nDirectory listing:\n");
+    print_string("==================\n");
     
-    uint8_t sector_buffer[512];
     bool found_any = false;
+    char filename[13];
     
-    for(uint32_t sector = 0; sector < root_dir_sectors; sector++) {
-        if(!disk_read_sector(root_dir_start + sector, sector_buffer)) {
+    for (uint16_t i = 0; i < bpb.root_dir_entries; i++) {
+        fat12_dir_entry_t* entry = (fat12_dir_entry_t*)&root_dir_cache[i * 32];
+        
+        // Check if entry is valid
+        if (entry->filename[0] == 0x00) {
+            // End of directory
             break;
         }
         
-        for(int i = 0; i < 16; i++) {
-            fat12_dir_entry_t* entry = (fat12_dir_entry_t*)&sector_buffer[i * 32];
-            
-            if(entry->filename[0] == 0x00) {
-                // End of directory
-                return;
-            }
-            
-            if(entry->filename[0] == 0xE5) {
-                continue;
-            }
-            
-            // Skip volume label
-            if(entry->attributes & 0x08) {
-                continue;
-            }
-            
-            found_any = true;
-            
-            // Convert filename
-            char name[13];
-            fat12_83_to_string(entry, name);
-            
-            // Print entry
-            if(entry->attributes & 0x10) {
-                // Directory
-                print_string("[DIR]  ");
-            } else {
-                // File
-                print_string("[FILE] ");
-            }
-            
-            print_string(name);
-            
-            // Add spacing
-            size_t len = strlen(name);
-            while(len++ < 15) print_string(" ");
-            
-            // File size
-            char size_str[16];
-            uint32_t size = entry->file_size;
-            
-            if(size < 1024) {
-                // Bytes
-                print_string("    ");
-                // Simple size conversion
-                char* p = size_str;
-                if(size == 0) {
-                    *p++ = '0';
-                } else {
-                    uint32_t n = size;
-                    char temp[16];
-                    char* t = temp;
-                    while(n > 0) {
-                        *t++ = '0' + (n % 10);
-                        n /= 10;
-                    }
-                    while(t > temp) {
-                        *p++ = *(--t);
-                    }
-                }
-                *p++ = 'B';
-                *p = '\0';
-                print_string(size_str);
-            } else if(size < 1024 * 1024) {
-                // KB
-                uint32_t kb = size / 1024;
-                // Similar conversion for KB
-                print_string("    ");
-                // ... conversion code ...
-                print_string("KB");
-            }
-            
-            print_string("\n");
+        if (entry->filename[0] == 0xE5) {
+            // Deleted entry
+            continue;
         }
+        
+        // Skip volume label
+        if (entry->attributes & 0x08) {
+            continue;
+        }
+        
+        found_any = true;
+        
+        // Convert filename
+        fat12_83_to_string(entry, filename);
+        
+        // Print entry type
+        if (entry->attributes & 0x10) {
+            print_string("[DIR]  ");
+        } else {
+            print_string("[FILE] ");
+        }
+        
+        // Print filename
+        print_string(filename);
+        
+        // Align columns
+        size_t name_len = strlen(filename);
+        while (name_len++ < 15) {
+            print_string(" ");
+        }
+        
+        // Print file size if it's a file
+        if (!(entry->attributes & 0x10)) {
+            char size_str[16];
+            
+            if (entry->file_size < 1024) {
+                itoa(entry->file_size, size_str, 10);
+                print_string(size_str);
+                print_string(" bytes");
+            } else if (entry->file_size < 1024 * 1024) {
+                itoa(entry->file_size / 1024, size_str, 10);
+                print_string(size_str);
+                print_string(" KB");
+            } else {
+                itoa(entry->file_size / (1024 * 1024), size_str, 10);
+                print_string(size_str);
+                print_string(" MB");
+            }
+        }
+        
+        print_string("\n");
     }
     
-    if(!found_any) {
-        print_string("Directory is empty\n");
+    if (!found_any) {
+        print_string("(empty directory)\n");
     }
+    
+    print_string("\n");
 }
 
 // Read file into buffer
 bool fat12_read_file(const char* filename, uint8_t* buffer, uint32_t max_size) {
-    fat12_dir_entry_t entry;
-    
-    if(!fat12_find_file(filename, &entry)) {
+    if (!initialized) {
         return false;
     }
     
-    if(entry.file_size > max_size) {
+    // Find the file
+    fat12_dir_entry_t entry;
+    if (!fat12_find_file(filename, &entry)) {
+        return false;
+    }
+    
+    // Check buffer size
+    if (entry.file_size > max_size) {
+        print_string("Error: Buffer too small for file\n");
         return false;
     }
     
@@ -295,29 +390,33 @@ bool fat12_read_file(const char* filename, uint8_t* buffer, uint32_t max_size) {
     uint32_t bytes_read = 0;
     uint8_t sector_buffer[512];
     
-    while(cluster < 0xFF8) {  // Not EOF
-        if(cluster == 0xFF7) {
+    while (cluster < 0xFF8) {  // Not EOF
+        if (cluster == 0xFF7) {
             // Bad cluster
+            print_string("Error: Bad cluster encountered\n");
             return false;
         }
         
         // Read cluster
         uint32_t lba = fat12_cluster_to_lba(cluster);
-        for(int i = 0; i < bpb.sectors_per_cluster; i++) {
-            if(!disk_read_sector(lba + i, sector_buffer)) {
+        for (int i = 0; i < bpb.sectors_per_cluster; i++) {
+            if (!disk_read_sector(lba + i, sector_buffer)) {
+                print_string("Error: Cannot read sector\n");
                 return false;
             }
             
-            // Copy to buffer
+            // Calculate bytes to copy
             uint32_t to_copy = 512;
-            if(bytes_read + to_copy > entry.file_size) {
+            if (bytes_read + to_copy > entry.file_size) {
                 to_copy = entry.file_size - bytes_read;
             }
             
+            // Copy to buffer
             memcpy(buffer + bytes_read, sector_buffer, to_copy);
             bytes_read += to_copy;
             
-            if(bytes_read >= entry.file_size) {
+            // Check if done
+            if (bytes_read >= entry.file_size) {
                 return true;
             }
         }
@@ -327,4 +426,42 @@ bool fat12_read_file(const char* filename, uint8_t* buffer, uint32_t max_size) {
     }
     
     return bytes_read == entry.file_size;
+}
+
+// Check if filesystem is mounted
+bool fat12_is_mounted(void) {
+    return initialized;
+}
+
+// Get free space (simplified - counts free clusters)
+uint32_t fat12_get_free_space(void) {
+    if (!initialized) {
+        return 0;
+    }
+    
+    uint32_t free_clusters = 0;
+    
+    // Count free clusters in FAT (cluster 2 and up)
+    for (uint16_t cluster = 2; cluster < 4085; cluster++) {
+        uint16_t fat_entry = fat12_get_next_cluster(cluster);
+        if (fat_entry == 0x000) {  // Free cluster
+            free_clusters++;
+        }
+    }
+    
+    return free_clusters * bpb.sectors_per_cluster * bpb.bytes_per_sector;
+}
+
+// Get total space
+uint32_t fat12_get_total_space(void) {
+    if (!initialized) {
+        return 0;
+    }
+    
+    uint32_t data_sectors = bpb.total_sectors - 
+                           (bpb.reserved_sectors + 
+                            (bpb.fat_count * bpb.sectors_per_fat) + 
+                            calculate_root_dir_sectors());
+    
+    return data_sectors * bpb.bytes_per_sector;
 }
