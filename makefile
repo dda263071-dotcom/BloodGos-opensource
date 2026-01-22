@@ -153,3 +153,28 @@ help:
 	@echo "  bloodg.iso  - Bootable ISO"
 
 .PHONY: all run run-iso debug check docs clean help
+# Add false folder
+FALSE_DIR = false
+FALSE_OBJS = $(BUILD_DIR)/false_kernel.o $(BUILD_DIR)/false_driver.o \
+             $(BUILD_DIR)/false_implementation.o $(BUILD_DIR)/false.o
+
+# Update kernel objects
+KERNEL_OBJS += $(FALSE_OBJS)
+
+# Rules for false objects
+$(BUILD_DIR)/false_kernel.o: $(FALSE_DIR)/false_kernel.c
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/false_driver.o: $(FALSE_DIR)/false_driver.c
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/false_implementation.o: $(FALSE_DIR)/false_implementation.c
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/false.o: $(FALSE_DIR)/false.c
+	$(CC) $(CFLAGS) -c $< -o $@
+
+# Update clean target
+clean:
+	rm -rf $(BUILD_DIR) iso $(KERNEL) $(TARGET) $(DISK_IMG) *.log DOCUMENTATION.md
+	@echo "Cleaned build directory"
