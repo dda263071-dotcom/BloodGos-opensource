@@ -1,0 +1,96 @@
+/* 
+ * Linker Script untuk BloodGos OS Kernel (x86 32-bit)
+ * Kernel di-load pada alamat fisik 1MB (0x00100000)
+ * Entry point: _start (dari kernel_entry.asm)
+ */
+
+ENTRY(_start)
+
+/* Layout memori untuk kernel */
+SECTIONS
+{
+    /* 
+     * Kernel di-load pada 1MB (batas memori rendah).
+     * Bootloader akan memuat kernel ke alamat ini.
+     */
+    . = 0x00100000;
+    
+    /* 
+     * Multiboot header HARUS berada di 8KB pertama kernel
+     * (jika menggunakan bootloader yang mendukung multiboot)
+     */
+    .multiboot BLOCK(4K) : ALIGN(4K)
+    {
+        *(.multiboot)
+    }
+    
+    /* 
+     * Section .text: Kode eksekusi kernel
+     * ALIGN(4K): Align ke page boundary (4KB)
+     */
+    .text BLOCK(4K) : ALIGN(4K)
+    {
+        *(.text)
+        *(.text.*)
+    }
+    
+    /* 
+     * Section .rodata: Data read-only (konstanta, string literal)
+     */
+    .rodata BLOCK(4K) : ALIGN(4K)
+    {
+        *(.rodata)
+        *(.rodata.*)
+    }
+    
+    /* 
+     * Section .data: Data yang diinisialisasi
+     * HARUS berada di alamat VMA (Virtual Memory Address) yang sama dengan LMA (Load Memory Address)
+     * karena kernel berjalan di physical memory langsung
+     */
+    .data BLOCK(4K) : ALIGN(4K)
+    {
+        *(.data)
+        *(.data.*)
+    }
+    
+    /* 
+     * Section .bss: Data yang tidak diinisialisasi (zero-initialized)
+     * Symbol _bss_start dan _bss_end digunakan kernel untuk zeroing BSS
+     */
+    .bss BLOCK(4K) : ALIGN(4K)
+    {
+        _bss_start = .;        /* Simbol awal BSS */
+        *(COMMON)              /* Common symbols (uninitialized global vars) */
+        *(.bss)                /* Uninitialized static vars */
+        *(.bss.*)
+        _bss_end = .;          /* Simbol akhir BSS */
+    }
+    
+    /* 
+     * Simbol akhir kernel untuk mengetahui ukuran kernel
+     */
+    _kernel_end = .;
+    
+    /* 
+     * Section yang tidak diperlukan di kernel
+     */
+    /DISCARD/ :
+    {
+        *(.comment)
+        *(.eh_frame)
+        *(.note.gnu.build-id)
+    }
+}
+
+/* 
+ * Informasi tambahan untuk kernel:
+ * 
+ * 1. Kernel perlu meng-clear section .bss pada startup
+ *    (menggunakan _bss_start dan _bss_end)
+ * 
+ * 2. Kernel berjalan di physical address 1MB ke atas
+ * 
+ * 3. Semua section di-align ke 4KB untuk memudahkan paging
+ *    nantinya jika implement virtual memory
+ */
