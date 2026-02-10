@@ -1,46 +1,44 @@
-/* =========================
-   linker.ld - BloodGos
-   Safe & Standard OSDev
-   ========================= */
+/* ================================
+   Linker Script - BloodG OS Kernel
+   Safe & Stable OSDev Layout
+   ================================ */
 
-OUTPUT_FORMAT(elf32-i386)
-OUTPUT_ARCH(i386)
 ENTRY(_start)
-
-/* Kernel load address */
-KERNEL_BASE = 0x00100000;
 
 SECTIONS
 {
-    /* Kernel dimulai di 1MB */
-    . = KERNEL_BASE;
+    /* Kernel load address (1MB) */
+    . = 0x00100000;
 
-    /* ---------- TEXT ---------- */
+    /* ---------------- TEXT ---------------- */
     .text ALIGN(4K) :
     {
-        *(.multiboot)      /* kalau pakai multiboot */
+        KEEP(*(.multiboot))
         *(.text*)
     }
 
-    /* ---------- RODATA ---------- */
+    /* ---------------- RODATA ---------------- */
     .rodata ALIGN(4K) :
     {
         *(.rodata*)
     }
 
-    /* ---------- DATA ---------- */
+    /* ---------------- DATA ---------------- */
     .data ALIGN(4K) :
     {
         *(.data*)
     }
 
-    /* ---------- BSS ---------- */
+    /* ---------------- BSS ---------------- */
     .bss ALIGN(4K) :
     {
         *(COMMON)
         *(.bss*)
     }
 
-    /* ---------- END SYMBOL ---------- */
-    end = .;
+    /* ---------------- STACK ---------------- */
+    . = ALIGN(16);
+    stack_bottom = .;
+    . += 0x4000; /* 16 KB stack */
+    stack_top = .;
 }
