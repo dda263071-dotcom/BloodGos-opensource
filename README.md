@@ -1,259 +1,300 @@
-# 🩸 BloodGos OS
+# BloodGos LibC
 
-> Hobby Operating System written from scratch in **C & x86 Assembly**
+BloodGos LibC adalah implementasi custom C standard-like library yang dirancang khusus untuk sistem operasi BloodGos. Library ini dibuat untuk lingkungan **freestanding kernel**, sehingga tidak bergantung pada libc dari sistem host (glibc, musl, dll).
 
-BloodGos adalah **hobby operating system** yang dibuat untuk pembelajaran **low-level programming dan OS development**. Project ini **BUKAN Linux fork** dan **BUKAN based on existing OS**, melainkan kernel dan bootloader buatan sendiri.
+Library ini menyediakan komponen fundamental seperti:
 
----
+- Manajemen memori
+- Operasi string & memory
+- Matematika dasar
+- Kriptografi
+- I/O level rendah
+- Utility standar (itoa, stdio, dll)
+- Timer dan hardware interaction dasar
 
-## ✨ Features
-
-* Custom **Bootloader (x86)**
-* **Protected Mode Kernel**
-* **FAT12 File System** support
-* VGA Text Mode output
-* Keyboard (PS/2) Driver
-* ATA Disk Driver
-* Basic Memory Management
-* Modular kernel structure
+Library ini sepenuhnya ditulis untuk kebutuhan kernel dan berjalan tanpa runtime eksternal.
 
 ---
 
+## 🎯 Tujuan Project
 
+BloodGos LibC dibuat untuk:
+
+- Menyediakan fondasi standar untuk kernel BloodGos
+- Menghindari ketergantungan pada libc eksternal
+- Memberikan struktur modular dan scalable
+- Menjadi referensi pembelajaran OS development (C + low-level system)
+
+Library ini bersifat **educational + experimental**, namun tetap dirancang dengan struktur profesional dan modular.
 
 ---
 
-## 🚀 Getting Started
+# 📁 Struktur Direktori
 
-Tutorial berikut bisa dijalankan di **PC (Windows / Linux)** dan **HP Android**.
+```
+include/libc/
+├── types.h
+├── timer.h
+├── print_string.h
+├── io.h
+├── itoa.h
+├── malloc.h
+├── stdio.h
+├── math/
+│   └── math.h
+├── crypto/
+│   └── crypto.h
+└── string/
+    └── string.h
 
----
-
-## 🖥️ Tutorial Lengkap di PC
-
-### 🔧 1. Requirements
-
-#### Windows
-
-* Windows 10 / 11
-* WSL (Ubuntu recommended) **atau** Linux native
-* NASM
-* GCC
-* Make
-* QEMU
-
-#### Linux (Ubuntu/Debian)
-
-```bash
-sudo apt update
-sudo apt install build-essential nasm qemu-system-x86
+src/libc/
+├── timer.c
+├── print_string.c
+├── io.c
+├── itoa.c
+├── malloc.c
+├── stdio.c
+├── math/
+│   ├── trig.c
+│   ├── sin.c
+│   └── sqrt.c
+├── crypto/
+│   ├── rotate.c
+│   ├── crc32.c
+│   ├── aes.c
+│   ├── sha256.c
+└── string/
+    ├── mem.c
+    └── str.c
 ```
 
 ---
 
-### ▶️ 2. Clone Repository
+# 📦 Komponen Library
 
-```bash
-git clone https://github.com/dda263071-dotcom/BloodGos-opensource.git
-cd BloodGos-opensource
+## 1️⃣ Core Types
+
+### `types.h`
+Menyediakan definisi tipe dasar untuk sistem freestanding:
+
+- `uint8_t`
+- `uint16_t`
+- `uint32_t`
+- `size_t`
+- dll
+
+Digunakan sebagai fondasi seluruh kernel.
+
+---
+
+## 2️⃣ Memory Management
+
+### `malloc.h` / `malloc.c`
+Implementasi memory allocator sederhana untuk kernel.
+
+Fitur:
+- Dynamic memory allocation
+- Kernel heap management
+- Freestanding compatible
+
+Digunakan untuk struktur data dinamis di kernel.
+
+---
+
+## 3️⃣ String & Memory
+
+### `string/string.h`
+Berisi fungsi manipulasi string dan memory seperti:
+
+- `strlen`
+- `strcmp`
+- `strcpy`
+- `memcpy`
+- `memset`
+- dll
+
+Implementasi dibagi menjadi:
+
+- `mem.c` → fungsi memory level rendah
+- `str.c` → manipulasi string karakter
+
+Dirancang tanpa dependency libc eksternal.
+
+---
+
+## 4️⃣ I/O Layer
+
+### `io.h` / `io.c`
+Low-level hardware I/O:
+
+- `inb`
+- `outb`
+- Port communication
+
+Digunakan untuk komunikasi dengan perangkat seperti:
+- Keyboard PS/2
+- ATA
+- Timer
+- VGA
+
+---
+
+## 5️⃣ Console Output
+
+### `print_string.h` / `print_string.c`
+Fungsi untuk menampilkan teks ke layar (VGA text mode).
+
+Digunakan sebagai backend untuk `stdio`.
+
+---
+
+## 6️⃣ Standard IO (Kernel Mode)
+
+### `stdio.h` / `stdio.c`
+Implementasi ringan fungsi seperti:
+
+- `printf` (versi kernel-safe)
+- Output formatting dasar
+
+Dirancang untuk debugging dan logging kernel.
+
+---
+
+## 7️⃣ Timer
+
+### `timer.h` / `timer.c`
+Driver sederhana untuk programmable interval timer (PIT).
+
+Digunakan untuk:
+- Delay
+- Scheduling
+- Tick counter
+
+---
+
+## 8️⃣ Utility
+
+### `itoa.h` / `itoa.c`
+Integer to ASCII conversion.
+
+Digunakan oleh:
+- printf
+- debugging output
+- logging
+
+---
+
+## 9️⃣ Math Module
+
+Folder: `math/`
+
+### `math.h`
+Interface utama matematika.
+
+Implementasi:
+- `sin`
+- `sqrt`
+- fungsi trigonometri
+- operasi numerik dasar
+
+Dirancang tanpa floating-point hardware dependency berat (kernel-friendly).
+
+---
+
+## 🔐 Crypto Module
+
+Folder: `crypto/`
+
+### `crypto.h`
+Interface utama cryptographic utilities.
+
+Implementasi:
+
+- `rotate.c` → bit rotation
+- `crc32.c` → checksum CRC32
+- `aes.c` → symmetric encryption
+- `sha256.c` → hashing SHA-256
+
+Digunakan untuk:
+- File verification
+- Integrity check
+- Future filesystem security
+- Networking layer (planned)
+
+---
+
+# ⚙️ Build Environment
+
+Library ini dirancang untuk:
+
+- GCC cross-compiler (i686-elf)
+- Freestanding compilation mode
+- Tanpa linking libc host
+
+Compile flags biasanya meliputi:
+
+```
+-ffreestanding
+-nostdlib
+-fno-builtin
 ```
 
 ---
 
-### ⚙️ 3. Build OS
+# 🧠 Design Philosophy
 
-```bash
-make
-```
+BloodGos LibC mengikuti prinsip:
 
-Jika berhasil, file image / ISO akan terbuat.
+- Modular
+- Low-level first
+- Minimal dependency
+- Kernel-oriented
+- Educational clarity
 
----
+Struktur dipisah antara:
 
-### ▶️ 4. Run di QEMU
+- Header (interface)
+- Source (implementation)
+- Modul per kategori (math, crypto, string)
 
-```bash
-make run
-```
-
-Atau manual:
-
-```bash
-qemu-system-i386 -cdrom BloodGos.iso
-```
+Hal ini mempermudah scaling dan maintenance jangka panjang.
 
 ---
 
-## 📱 Tutorial Lengkap di HP (Android)
+# 🚀 Roadmap (Planned)
 
-> ⚠️ Performa terbatas, tapi **cukup untuk belajar**.
+Beberapa pengembangan masa depan:
 
-### 🔧 1. Install Aplikasi
-
-* **Termux** (via F-Droid)
-* **QEMU for Android** (opsional, berat)
-
----
-
-### ▶️ 2. Setup Termux
-
-```bash
-pkg update
-pkg install git clang make nasm qemu-system-x86
-```
+- Memory allocator yang lebih advanced (paging-aware)
+- Extended printf formatter
+- Random number generator
+- Big integer math
+- Networking crypto utilities
+- Optimized assembly versions untuk fungsi kritikal
 
 ---
 
-### ▶️ 3. Clone & Build
+# 📖 Educational Purpose
 
-```bash
-git clone https://github.com/dda263071-dotcom/BloodGos-opensource.git
-cd BloodGos-opensource
-make
-```
+Library ini dibuat sebagai bagian dari proyek OS BloodGos untuk:
 
----
-
-### ▶️ 4. Run (Jika QEMU tersedia)
-
-```bash
-qemu-system-i386 -cdrom BloodGos.iso
-```
-
-Jika tidak bisa run di HP, build tetap bisa dilakukan untuk **belajar struktur & kode OS**.
+- Mempelajari cara kerja libc di level rendah
+- Memahami bagaimana kernel membangun fondasi runtime-nya sendiri
+- Memberikan referensi open-source untuk developer OS pemula
 
 ---
 
-## 🧪 Tips Debugging
+# 📜 License
 
-* Gunakan `printf` VGA untuk debug kernel
-* Cek log QEMU jika boot gagal
-* Build ulang jika edit ASM
-
----
-
-## 🧠 Project Structure
-
-Struktur **BloodG-OS** dirancang modular dan profesional agar mudah dipelajari untuk OS Development tingkat low-level.
-
-```text
-bloodg-os/
-├── boot/                    # Bootloader components
-│   ├── boot.asm            # Main bootloader (Real Mode → Protected Mode)
-│   ├── kernel_entry.asm    # Kernel entry point + stack setup
-│   ├── shutdown.asm        # System shutdown & reboot routines
-│   └── false.asm           # Kernel validation & fatal error handler
-│
-├── kernel/                  # Core kernel
-│   ├── kernel.c            # Main kernel + shell + command processor
-│   ├── loading.c           # Animated loading screen (ASCII art)
-│   └── driver.c            # Kernel-level I/O helpers
-│
-├── drivers/                 # Hardware drivers
-│   ├── ata.c               # ATA / IDE disk driver (PIO)
-│   ├── keyboard.c          # PS/2 keyboard + scancode translation
-│   ├── vga.c               # VGA text mode driver (color support)
-│   ├── timer.c             # PIT (Programmable Interval Timer)
-│   ├── serial.c            # Serial port (COM1) driver
-│   └── pic.c               # PIC 8259 interrupt controller
-│
-├── fs/                      # Filesystem layer
-│   └── fat12.c             # Complete FAT12 filesystem implementation
-│
-├── src/                     # Core libraries
-│   ├── string.c            # Custom string & memory routines
-│   ├── io.c                # Port I/O & CPU instructions
-│   └── memory.c            # Memory manager (1MB pool)
-│
-├── include/                 # Public headers
-│   ├── string.h            # String API
-│   ├── io.h                # Low-level I/O API
-│   ├── memory.h            # Memory manager API
-│   ├── fat12.h             # FAT12 filesystem API
-│   ├── ata.h               # ATA interface
-│   ├── keyboard.h          # Keyboard interface
-│   ├── vga.h               # VGA text mode API
-│   ├── timer.h             # Timer interface
-│   └── serial.h            # Serial port API
-│
-├── tools/                   # Development utilities
-│   ├── create_fat12.py     # FAT12 disk image generator
-│   ├── memory_check.py     # Memory layout visualizer
-│   ├── memory_check.c      # Kernel memory checker
-│   └── docs.py             # Documentation generator
-│
-├── build/                   # Build artifacts (auto-generated)
-├── Linker.ld               # Kernel linker script
-├── Makefile                # Professional build system
-└── Build.sh                # Automated build & test script
-```
+Project ini bersifat open-source.  
+Silakan gunakan, modifikasi, dan pelajari untuk tujuan edukasi.
 
 ---
 
-## 🎯 Project Goals
+# 👨‍💻 Author
 
-* Learn how an OS boots and runs on real hardware
-* Understand memory management, interrupts, and drivers
-* Build a clean and readable hobby OS codebase
-* Become a reference project for Indonesian OSDev learners 🇮🇩
+developed by : @alzzdevmaret
 
 ---
 
-## 🛣️ Roadmap
-
-* [x] Bootloader
-* [x] Kernel entry
-* [x] FAT12 support
-* [x] Keyboard input
-* [ ] Simple shell
-* [ ] Paging / Virtual Memory
-* [ ] User mode
-* [ ] Basic multitasking
-
----
-
-## 🤝 Contributing
-
-Contributions are **very welcome**!
-
-You can help by:
-
-* Improving documentation
-* Refactoring code
-* Adding drivers or kernel features
-* Fixing bugs
-
-Check **Issues** for `good first issue` or `help wanted` labels.
-
----
-
-## ❗ Disclaimer
-
-BloodGos is an **educational hobby OS**.
-
-❌ Not intended for production use
-❌ No security guarantee
-✅ Built for learning & experimentation
-
----
-
-## 📚 References & Inspiration
-
-* OSDev Wiki
-* Intel x86 Manuals
-* Classic hobby OS projects
-
----
-
-## ⭐ Support
-
-If you find this project interesting or useful:
-
-* ⭐ Star this repository
-* 🍴 Fork it
-* 🗣️ Share it with other OSDev learners
-
----
-
-**Built with passion for low-level programming ❤️**
-
+Jika kamu tertarik pada OS development, silakan eksplorasi kode, lakukan eksperimen, dan bangun sistem operasimu sendiri 🚀
