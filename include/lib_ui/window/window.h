@@ -4,6 +4,7 @@
 #include <libc/types.h>
 #include <lib_ui/graphics/graphics.h>
 #include <lib_ui/font/font.h>
+#include <lib_ui/widget/widget.h>   /* widget base type */
 
 #ifdef __cplusplus
 extern "C" {
@@ -31,9 +32,14 @@ typedef struct window {
     uint32_t flags;
     char*    title;
     
-    /* Callback untuk menggambar konten window */
+    /* Callback untuk menggambar konten khusus (jika tidak pakai widget) */
     void (*draw_content)(struct window* win, void* priv);
-    void*   priv;   /* data pribadi untuk callback */
+    void*   priv;
+    
+    /* Widget management */
+    widget_t** widgets;         /* array of widget pointers */
+    uint32_t   widget_count;
+    uint32_t   widget_capacity;
     
     /* Z‑order linked list */
     struct window* prev;
@@ -43,9 +49,10 @@ typedef struct window {
 /* ============================================================================
    Global window manager state
    ============================================================================ */
-void        wm_init(font_t* title_font);   /* font untuk title bar */
+void        wm_init(font_t* title_font);
 void        wm_set_desktop_color(uint32_t color);
 font_t*     wm_get_title_font(void);
+uint32_t    wm_get_titlebar_height(void);
 
 /* ============================================================================
    Window creation / destruction
@@ -69,19 +76,28 @@ window_t*   wm_get_active_window(void);
 void        wm_move_to_front(window_t* win);
 
 /* ============================================================================
+   Widget management
+   ============================================================================ */
+int         wm_add_widget(window_t* win, widget_t* widget);
+int         wm_remove_widget(window_t* win, widget_t* widget);
+void        wm_remove_all_widgets(window_t* win);
+widget_t*   wm_get_widget_at(window_t* win, uint32_t x, uint32_t y);
+
+/* ============================================================================
    Rendering
    ============================================================================ */
-void        wm_draw_all(void);              /* gambar semua window */
-void        wm_draw_window(window_t* win);  /* gambar satu window */
+void        wm_draw_all(void);
+void        wm_draw_window(window_t* win);
 void        wm_draw_titlebar(window_t* win);
-void        wm_draw_content(window_t* win); /* panggil callback */
+void        wm_draw_widgets(window_t* win);
+void        wm_draw_content(window_t* win);
 
 /* ============================================================================
    Mouse event handling (panggil dari driver)
    ============================================================================ */
 void        wm_handle_mouse_move(uint32_t x, uint32_t y);
-void        wm_handle_mouse_button(int button, int pressed);
-int         wm_is_dragging(void);           /* apakah sedang drag window? */
+void        wm_handle_mouse_button(uint32_t x, uint32_t y, int button, int pressed);
+int         wm_is_dragging(void);
 
 /* ============================================================================
    Hit testing
